@@ -1,4 +1,4 @@
-import { Observable, timer } from 'rxjs';
+import { Observable, Subject, timer } from 'rxjs';
 import { take } from 'rxjs/operators';
 
 import { isolate } from './isolate';
@@ -109,5 +109,47 @@ describe('isolate', () => {
             // it should not unsubscribe in the test run, only in cleanup
             expect(unsub).not.toHaveBeenCalled();
         }));
+
+        const longWaitGen = async () => {
+            return await new Promise<{ test: string }>(resolve => {
+                setTimeout(() => resolve({ test: 'data' }), 2000);
+            });
+        };
+        it('waits for long running async data', isolate(longWaitGen)(noop)(async data => {
+            const { test } = await data;
+
+            expect(test).toEqual('data');
+        }));
+
+        const testSubjectsGen = () => {
+            const subj$ = new Subject<number>();
+            const next = jasmine.createSpy('next');
+            const sub = subj$.subscribe({ next });
+            return { subj$, next, sub };
+        };
+        const testSubjectsCleanup = ({ subj$, next, sub }: ReturnType<typeof testSubjectsGen>) => {
+            const complete = spyOn(subj$, 'complete');
+            const unsub = spyOn(sub, 'unsubscribe');
+
+            subj$.complete();
+            sub.unsubscribe();
+
+            expect(complete).toHaveBeenCalledTimes(1);
+            expect(unsub).toHaveBeenCalledTimes(1);
+            expect(next).toHaveBeenCalledTimes(3);
+        };
+        const testSubjectsSetup = isolate(testSubjectsGen)(testSubjectsCleanup);
+        it('tests subjects', testSubjectsSetup(({ subj$, next }) => {
+            subj$.next(10);
+            expect(next).toHaveBeenCalledTimes(1);
+            expect(next).toHaveBeenCalledWith(10);
+
+            subj$.next(15);
+            subj$.next(-2);
+
+            expect(next).toHaveBeenCalledTimes(3);
+            expect(next).toHaveBeenCalledWith(15);
+            expect(next).toHaveBeenCalledWith(-2);
+        }))
     });
 });
