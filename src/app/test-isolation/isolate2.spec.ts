@@ -31,23 +31,26 @@ describe('isolate2', () => {
         })
     });
 
-    const s = pipe(
+    const strTester = pipe(
         dataGen(() => ({ str: 'hello' })),
         componentGen(createComponent),
         cleanup(({ fixture }) => fixture.destroy()),
     );
 
-    it('tests', pipe(s, spyConfig((q) => {
-        const fakeService = TestBed.inject(FakeService);
-        (fakeService.fakeMethod as jasmine.Spy).and.returnValue(`${q.str}, overridden`);
-    }), runTestAsync(({ str, component, fixture }) => {
-        const fakeService = TestBed.inject(FakeService);
-        fixture.detectChanges();
+    it('tests', pipe(strTester,
+        spyConfig((q) => {
+            const fakeService = TestBed.inject(FakeService);
+            (fakeService.fakeMethod as jasmine.Spy).and.returnValue(`${q.str}, overridden`);
+        }),
+        runTestAsync(({ str, component, fixture }) => {
+            const fakeService = TestBed.inject(FakeService);
+            fixture.detectChanges();
 
-        expect(str).toEqual('hello');
-        expect(fakeService.fakeMethod()).toEqual('hello, overridden');
-        expect(component).toBeDefined();
+            expect(str).toEqual('hello');
+            expect(fakeService.fakeMethod()).toEqual('hello, overridden');
+            expect(component).toBeDefined();
 
-        console.log('expectations have computed');
-    })));
+            console.log('expectations have computed');
+        })
+    ));
 });

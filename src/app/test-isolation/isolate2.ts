@@ -15,8 +15,12 @@ interface IsolatedTest<T extends Obj, U extends Obj = {}> {
     cleanup: Maybe<(tu: T & U) => IO<void>>;
 }
 
-export const getMIsolatedTest = <A extends Obj, U extends Obj = {}>() =>
-    getObjectMonoid<IsolatedTest<A, U>>({
+export type DataGenType<T extends IsolatedTest<any>> = T extends IsolatedTest<infer U, any> ? U : Obj;
+export type ComponentGenType<T extends IsolatedTest<any, any>> = T extends IsolatedTest<any, infer U> ? U : Obj;
+export type TestType<T extends IsolatedTest<any, any>> = [DataGenType<T>, ComponentGenType<T>];
+
+export const getMIsolatedTest = <T extends IsolatedTest<any, any>>() =>
+    getObjectMonoid<IsolatedTest<DataGenType<T>, ComponentGenType<T>>>({
         dataGen: getMLastMaybe(),
         componentGen: getMLastMaybe(),
         spyConfig: getMLastMaybe(),
@@ -30,11 +34,11 @@ export const dataGen = <A extends Obj>(gen: IO<A>): IsolatedTest<A> => ({
     cleanup: none
 });
 
-export const spyConfig = <A extends Obj, U extends Obj = {}>(config: (a: A) => void) => (isolatedTest: IsolatedTest<A, U>) =>
-    getMIsolatedTest<A, U>().mappend(isolatedTest)({
+export const spyConfig = <T extends IsolatedTest<any, any>>(config: (a: DataGenType<T>) => void) => (isolatedTest: T) =>
+    getMIsolatedTest<T>().mappend(isolatedTest)({
         dataGen: none,
         componentGen: none,
-        spyConfig: some((a: A) => pipe(
+        spyConfig: some((a: DataGenType<T>) => pipe(
             () => config(a),
             ioMap(() => a)
         )),
@@ -42,23 +46,23 @@ export const spyConfig = <A extends Obj, U extends Obj = {}>(config: (a: A) => v
     });
 
 export const componentGen = <A extends Obj, U extends Obj>(gen: IO<U>) => (isolatedTest: IsolatedTest<A, U>): IsolatedTest<A, U> =>
-    getMIsolatedTest<A, U>().mappend(isolatedTest)({
+    getMIsolatedTest<IsolatedTest<A, U>>().mappend(isolatedTest)({
         dataGen: none,
         componentGen: some(gen),
         spyConfig: none,
         cleanup: none
     });
 
-export const cleanup = <A extends Obj, U extends Obj = {}>(cleanupFn: (a: A & U) => void) => (isolatedTest: IsolatedTest<A, U>) =>
-    getMIsolatedTest<A, U>().mappend(isolatedTest)({
+export const cleanup = <T extends IsolatedTest<any, any>>(cleanupFn: (a: DataGenType<T> & ComponentGenType<T>) => void) => (isolatedTest: T) =>
+    getMIsolatedTest<T>().mappend(isolatedTest)({
         dataGen: none,
         componentGen: none,
         spyConfig: none,
-        cleanup: some((a: A & U) => () => cleanupFn(a))
+        cleanup: some((a: DataGenType<T> & ComponentGenType<T>) => () => cleanupFn(a))
     });
 
-export const runTest = <A extends Obj, U extends Obj = {}>(testFn: (a: A & U) => void) =>
-    (isolatedTest: IsolatedTest<A, U>) => pipe(
+export const runTest = <T extends IsolatedTest<any, any>>(testFn: (a: DataGenType<T> & ComponentGenType<T>) => void) =>
+    (isolatedTest: T) => pipe(
         isolatedTest.dataGen,
         fold(() => { throw new Error('DataGen expected.'); }, identity),
         ioChain(data => pipe(
@@ -67,7 +71,10 @@ export const runTest = <A extends Obj, U extends Obj = {}>(testFn: (a: A & U) =>
         )),
         ioChain(data => pipe(
             isolatedTest.componentGen,
-            fold(() => ioOf(data) as IO<A & U>, cg => getIOMonoid(mObjConcat).mappend(ioOf(data))(cg) as IO<A & U>)
+            fold(() => ioOf(
+                data) as IO<DataGenType<T> & ComponentGenType<T>>,
+                cg => getIOMonoid(mObjConcat).mappend(ioOf(data))(cg) as IO<DataGenType<T> & ComponentGenType<T>>
+            )
         )),
         ioChain(data => pipe(
             () => testFn(data),
@@ -79,15 +86,15 @@ export const runTest = <A extends Obj, U extends Obj = {}>(testFn: (a: A & U) =>
         ))
     );
 
-export const runTestAsync = <A extends Obj, U extends Obj = {}>(testFn: (a: A & U) => void) =>
-    (isolatedTest: IsolatedTest<A, U>) => pipe(
+export const runTestAsync = <T extends IsolatedTest<any, any>>(testFn: (a: DataGenType<T> & ComponentGenType<T>) => void) =>
+    (isolatedTest: T) => pipe(
         isolatedTest,
         runTest(testFn),
         async
     );
 
-export const runTestFakeAsync = <A extends Obj, U extends Obj = {}>(testFn: (a: A & U) => void) =>
-    (isolatedTest: IsolatedTest<A, U>) => pipe(
+export const runTestFakeAsync = <T extends IsolatedTest<any, any>>(testFn: (a: DataGenType<T> & ComponentGenType<T>) => void) =>
+    (isolatedTest: T) => pipe(
         isolatedTest,
         runTest(testFn),
         fakeAsync
