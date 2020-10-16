@@ -2,7 +2,7 @@ import { async, fakeAsync } from '@angular/core/testing';
 import { identity } from 'rxjs';
 
 import { getIOMonoid, IO, ioChain, ioMap, ioOf } from './io';
-import { fold, fromNullable, getMLastMaybe, Maybe, none, some } from './maybe';
+import { fold, fromNullable, getMLastMaybe, Maybe, some } from './maybe';
 import { maybeIOChain } from './maybe-io';
 import { maybeReaderIOChain } from './maybe-reader';
 import { getObjectMonoid, mObjConcat } from './monoid';
