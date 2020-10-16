@@ -13,6 +13,11 @@ export const fromIO = <A>(io: IO<A>): Maybe<A> => some(io());
 
 export const isNone = <A extends unknown>(m: Maybe<A>): m is None => m.type === 'none';
 export const isSome = <A extends unknown>(m: Maybe<A>): m is Some<A> => m.type === 'some';
+export const isMaybe = (m: unknown): m is Maybe<unknown> =>
+    typeof m === 'object'
+    && !(m === undefined || m === null)
+    && Object.prototype.hasOwnProperty.call(m, 'type')
+    && ((m as any).type === 'none' || (m as any).type === 'some');
 
 export const fold = <A extends unknown, B extends unknown>(ifNone: IO<B>, ifSome: (a: A) => B) => (m: Maybe<A>): B =>
     isNone(m) ? ifNone() : ifSome(m.value);
@@ -29,8 +34,8 @@ export const maybeAp = <A extends unknown>(a: Maybe<A>) => <B extends unknown>(m
 export const extractNullable = <A extends unknown>() => (m: Maybe<A>): A | null =>
     isNone(m) ? null : m.value;
 
-export const getOrElse = <A extends unknown>(onNone: IO<A>) => (m: Maybe<A>): A =>
-    isNone(m) ? onNone() : m.value;
+export const fromNullable = <A>(a: A): A extends Maybe<any> ? A : Maybe<A> =>
+    ((isMaybe(a)) ? a : (a === undefined || a === null) ? none : some(a)) as any;
 
 export const getMaybeMonoid = <A extends unknown>(m: Monoid<A>): Monoid<Maybe<A>> => ({
     mempty: some(m.mempty),

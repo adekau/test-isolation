@@ -1,4 +1,4 @@
-import { fold, maybeMap, Maybe, none, some } from "./maybe";
+import { fold, maybeMap, Maybe, none, some, fromNullable } from "./maybe";
 import { pipe } from './pipe';
 
 describe('Maybe functor', () => {
@@ -28,5 +28,20 @@ describe('Maybe functor', () => {
             m2,
             maybeMap(a => a.length)
         )).toEqual(none);
+    });
+
+    it('from nullable', () => {
+        const t = fromNullable(undefined);
+        const u = fromNullable(null);
+        const v = fromNullable(5);
+        const a = fromNullable(some(5));
+        const b = fromNullable(none);
+
+        expect(t).toEqual(none);
+        expect(u).toEqual(none);
+        expect(v).toEqual(some(5));
+        expect(a).toEqual(some(5));
+        expect(v).toEqual(a);
+        expect(b).toEqual(none);
     });
 });

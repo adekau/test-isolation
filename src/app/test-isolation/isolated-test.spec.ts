@@ -1,10 +1,10 @@
 import { Component, NO_ERRORS_SCHEMA } from '@angular/core';
-import { TestBed } from '@angular/core/testing';
+import { TestBed, tick } from '@angular/core/testing';
 import { Observable, Subject, timer } from 'rxjs';
 import { take } from 'rxjs/operators';
 
 import { FakeService } from '../fake.service';
-import { cleanup, componentGen, dataGen, DataGenType, runTestAsync, spyConfig } from './isolated-test';
+import { cleanup, componentGen, dataGen, DataGenType, emptyDataGen, IsolatedTest, runTest, runTestAsync, runTestFakeAsync, spyConfig } from './isolated-test';
 import { pipe } from './pipe';
 
 type t = string & unknown;
@@ -52,8 +52,6 @@ describe('isolate2', () => {
             expect(str).toEqual('hello');
             expect(fakeService.fakeMethod()).toEqual('hello, overridden');
             expect(component).toBeDefined();
-
-            console.log('expectations have computed');
         })
     ));
 
@@ -71,8 +69,6 @@ describe('isolate2', () => {
             expect(data).toEqual(jasmine.objectContaining({
                 subj: jasmine.truthy()
             }));
-            console.log('in cleanup');
-            console.log(data.subj.next.calls.all());
 
             data.subj.complete();
 
@@ -98,7 +94,6 @@ describe('isolate2', () => {
             runTestAsync(data => {
                 data.subj.next(5);
                 data.subj.next(7);
-                console.log(data.subj.next.calls.all());
             })
         ));
     });
@@ -112,7 +107,7 @@ describe('isolate2', () => {
             strTest,
             runTestAsync(data => {
                 new Promise<DataGenType<typeof strTest>>(resolve => {
-                    setTimeout(() => resolve(data), 1000);
+                    setTimeout(() => resolve(data), 250);
                 }).then(r => {
                     expect(r.str).toEqual('hello');
                 });
@@ -147,7 +142,7 @@ describe('isolate2', () => {
             dataGen(asyncDataGen),
             runTestAsync(async (data) => {
                 const { something } = await data;
-                const test = await new Promise(resolve => setTimeout(() => resolve(true), 1000));
+                const test = await new Promise(resolve => setTimeout(() => resolve(true), 250));
 
                 expect(something).toBe(5);
                 expect(test).toBe(true);
@@ -156,7 +151,7 @@ describe('isolate2', () => {
 
         const asyncCleanup = async () => {
             const r = jasmine.createSpy('resolve').and.callFake((resolve) => resolve());
-            await new Promise(resolve => setTimeout(() => r(resolve), 1000));
+            await new Promise(resolve => setTimeout(() => r(resolve), 250));
 
             expect(r).toHaveBeenCalled();
         };
@@ -187,7 +182,7 @@ describe('isolate2', () => {
 
         const longWaitGen = async () => {
             return await new Promise<{ test: string }>(resolve => {
-                setTimeout(() => resolve({ test: 'data' }), 2000);
+                setTimeout(() => resolve({ test: 'data' }), 500);
             });
         };
         it('waits for long running async data', pipe(
@@ -235,5 +230,31 @@ describe('isolate2', () => {
                 expect(next).toHaveBeenCalledWith(-2);
             })
         ));
+    });
+
+    describe('tick', () => {
+        it('cannot use tick in runTestAsync', runTestAsync(() => {
+            expect(tick).toThrow();
+        })(emptyDataGen()));
+
+        it('can use tick in runTestFakeAsync', runTestFakeAsync(() => {
+            expect(tick).not.toThrow();
+        })(emptyDataGen()));
+    });
+
+    describe('errors', () => {
+        it('errors if no datagen provided', () => {
+            const spy = jasmine.createSpy().and.callFake(() => {
+                runTestAsync(() => { })({} as IsolatedTest<any, any>);
+            });
+            expect(spy).toThrow();
+        });
+
+        it('does not error if datagen is provided', () => {
+            const spy = jasmine.createSpy().and.callFake(() => {
+                runTestAsync(() => { })(dataGen(() => ({})));
+            });
+            expect(spy).not.toThrow();
+        });
     });
 });
