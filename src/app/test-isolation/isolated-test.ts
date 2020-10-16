@@ -3,6 +3,8 @@ import { identity } from 'rxjs';
 
 import { getIOMonoid, IO, ioChain, ioMap, ioOf } from './io';
 import { fold, getMLastMaybe, Maybe, none, some } from './maybe';
+import { maybeIOChain } from './maybe-io';
+import { maybeReaderIOChain } from './maybe-reader';
 import { getObjectMonoid, mObjConcat } from './monoid';
 import { pipe } from './pipe';
 
@@ -15,11 +17,10 @@ interface IsolatedTest<T extends Obj, U extends Obj = {}> {
     cleanup: Maybe<(tu: T & U) => IO<void>>;
 }
 
-export type DataGenType<T extends IsolatedTest<any>> = T extends IsolatedTest<infer U, any> ? U : Obj;
-export type ComponentGenType<T extends IsolatedTest<any, any>> = T extends IsolatedTest<any, infer U> ? U : Obj;
-export type TestType<T extends IsolatedTest<any, any>> = [DataGenType<T>, ComponentGenType<T>];
+export type DataGenType<T extends IsolatedTest<unknown>> = T extends IsolatedTest<infer U, unknown> ? U : Obj;
+export type ComponentGenType<T extends IsolatedTest<unknown, unknown>> = T extends IsolatedTest<unknown, infer U> ? U : Obj;
 
-export const getMIsolatedTest = <T extends IsolatedTest<any, any>>() =>
+export const getMIsolatedTest = <T extends IsolatedTest<unknown, unknown>>() =>
     getObjectMonoid<IsolatedTest<DataGenType<T>, ComponentGenType<T>>>({
         dataGen: getMLastMaybe(),
         componentGen: getMLastMaybe(),
@@ -61,39 +62,31 @@ export const cleanup = <T extends IsolatedTest<any, any>>(cleanupFn: (a: DataGen
         cleanup: some((a: DataGenType<T> & ComponentGenType<T>) => () => cleanupFn(a))
     });
 
-export const runTest = <T extends IsolatedTest<any, any>>(testFn: (a: DataGenType<T> & ComponentGenType<T>) => void) =>
+export const runTest = <T extends IsolatedTest<unknown, unknown>>(testFn: (a: DataGenType<T> & ComponentGenType<T>) => void) =>
     (isolatedTest: T) => pipe(
         isolatedTest.dataGen,
         fold(() => { throw new Error('DataGen expected.'); }, identity),
-        ioChain(data => pipe(
-            isolatedTest.spyConfig,
-            fold(() => ioOf(data), sc => sc(data))
-        )),
-        ioChain(data => pipe(
-            isolatedTest.componentGen,
-            fold(() => ioOf(
-                data) as IO<DataGenType<T> & ComponentGenType<T>>,
-                cg => getIOMonoid(mObjConcat).mappend(ioOf(data))(cg) as IO<DataGenType<T> & ComponentGenType<T>>
-            )
-        )),
+        maybeReaderIOChain(data => ioOf(data))
+            ((sc, data) => sc(data))
+            (isolatedTest.spyConfig),
+        maybeIOChain(data => ioOf(data) as IO<DataGenType<T> & ComponentGenType<T>>)
+            ((cg, data) => getIOMonoid(mObjConcat).mappend(ioOf(data))(cg) as IO<DataGenType<T> & ComponentGenType<T>>)
+            (isolatedTest.componentGen),
         ioChain(data => pipe(
             () => testFn(data),
             ioMap(() => data)
         )),
-        ioChain(data => pipe(
-            isolatedTest.cleanup,
-            fold(() => ioOf(void 0), cf => cf(data))
-        ))
+        maybeReaderIOChain(() => ioOf(void 0))((cf, data) => cf(data))(isolatedTest.cleanup)
     );
 
-export const runTestAsync = <T extends IsolatedTest<any, any>>(testFn: (a: DataGenType<T> & ComponentGenType<T>) => void) =>
+export const runTestAsync = <T extends IsolatedTest<unknown, unknown>>(testFn: (a: DataGenType<T> & ComponentGenType<T>) => void) =>
     (isolatedTest: T) => pipe(
         isolatedTest,
         runTest(testFn),
         async
     );
 
-export const runTestFakeAsync = <T extends IsolatedTest<any, any>>(testFn: (a: DataGenType<T> & ComponentGenType<T>) => void) =>
+export const runTestFakeAsync = <T extends IsolatedTest<unknown, unknown>>(testFn: (a: DataGenType<T> & ComponentGenType<T>) => void) =>
     (isolatedTest: T) => pipe(
         isolatedTest,
         runTest(testFn),
