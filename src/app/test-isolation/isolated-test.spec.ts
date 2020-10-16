@@ -39,19 +39,51 @@ describe('isolate2', () => {
         cleanup(({ fixture }) => fixture.destroy()),
     );
 
-    it('tests', pipe(
+    const fakeCreateComponent = jasmine.createSpy().and.callFake(createComponent);
+
+    it('configures spies before component creation', pipe(
         strTester,
+        // overwrite the existing one
+        componentGen(fakeCreateComponent),
         spyConfig((q) => {
             const fakeService = TestBed.inject(FakeService);
             (fakeService.fakeMethod as jasmine.Spy).and.returnValue(`${q.str}, overridden`);
+            expect(fakeCreateComponent).not.toHaveBeenCalled();
         }),
         runTestAsync(({ str, component, fixture }) => {
+            expect(fakeCreateComponent).toHaveBeenCalledTimes(1);
             const fakeService = TestBed.inject(FakeService);
             fixture.detectChanges();
 
             expect(str).toEqual('hello');
             expect(fakeService.fakeMethod()).toEqual('hello, overridden');
             expect(component).toBeDefined();
+        })
+    ));
+
+    it('commutes', pipe(
+        dataGen(() => ({ str: 'hello' })),
+        // since componentGen transforms the type, if cleanup comes before the type will be incorrectly assumed
+        // so will need to specify it if needed
+        // like so:
+        cleanup<IsolatedTest<{ str: string }, ReturnType<typeof createComponent>>>(data => {
+            expect(data).toEqual({
+                str: 'hello',
+                component: jasmine.anything(),
+                fixture: jasmine.anything()
+            });
+        }),
+        componentGen(createComponent),
+        // only allows use of non-component data.
+        spyConfig(data => {
+            expect(data).toEqual({
+                str: 'hello'
+            });
+        }),
+        runTestAsync(({ str, fixture, component }) => {
+            expect(str).toEqual('hello');
+            expect(fixture.detectChanges).toEqual(jasmine.any(Function));
+            expect(component).toBeInstanceOf(TestComponent);
         })
     ));
 
