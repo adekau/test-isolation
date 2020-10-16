@@ -17,8 +17,6 @@ import {
 } from './isolated-test';
 import { pipe } from './pipe';
 
-type t = string & unknown;
-
 @Component({ selector: 'test-component' })
 class TestComponent { }
 
