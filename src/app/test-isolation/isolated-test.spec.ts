@@ -4,7 +4,17 @@ import { Observable, Subject, timer } from 'rxjs';
 import { take } from 'rxjs/operators';
 
 import { FakeService } from '../fake.service';
-import { cleanup, componentGen, dataGen, DataGenType, emptyDataGen, IsolatedTest, runTest, runTestAsync, runTestFakeAsync, spyConfig } from './isolated-test';
+import {
+    cleanup,
+    componentGen,
+    dataGen,
+    DataGenType,
+    emptyDataGen,
+    IsolatedTest,
+    runTestAsync,
+    runTestFakeAsync,
+    spyConfig,
+} from './isolated-test';
 import { pipe } from './pipe';
 
 type t = string & unknown;
