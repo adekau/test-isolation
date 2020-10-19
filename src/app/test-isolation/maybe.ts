@@ -10,7 +10,7 @@ export type Maybe<A extends unknown> = None | Some<A>;
 export const none: Maybe<never> = ({ type: 'none' });
 export const some = <A extends unknown>(value: A): Maybe<A> => ({ type: 'some', value });
 export const fromIO = <A>(io: IO<A>): Maybe<A> => some(io());
-export const fromNullable = <A>(a: A): A extends Maybe<any> ? A : Maybe<A> =>
+export const fromNullable = <A>(a: A): 0 extends (1 & A) ? Maybe<A> : A extends Maybe<any> ? A : Maybe<A> =>
     ((isMaybe(a)) ? a : (a === undefined || a === null) ? none : some(a)) as any;
 
 export const isNone = <A extends unknown>(m: Maybe<A>): m is None => m.type === 'none';

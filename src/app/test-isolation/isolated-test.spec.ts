@@ -47,7 +47,7 @@ describe('isolate2', () => {
         cleanup(({ fixture }) => fixture.destroy()),
     );
 
-    const fakeCreateComponent = jasmine.createSpy().and.callFake(createComponent);
+    const fakeCreateComponent: typeof createComponent = jasmine.createSpy().and.callFake(createComponent);
 
     it('configures spies before component creation', pipe(
         strTester,
@@ -98,14 +98,19 @@ describe('isolate2', () => {
     const noop = () => { };
 
     describe('data creation/destruction', () => {
-        const subjGen = jasmine.createSpy('dataGen').and.callFake(() => ({
+        const subjGen: (() => {
+            subj: {
+                next: jasmine.Spy,
+                complete: jasmine.Spy
+            }
+        }) = jasmine.createSpy('dataGen').and.callFake(() => ({
             subj: {
                 next: jasmine.createSpy('next'),
                 complete: jasmine.createSpy('complete')
             }
         }));
 
-        const subjCleanup = ((data: any) => {
+        const subjCleanup = ((data: ReturnType<typeof subjGen>) => {
             expect(data).toEqual(jasmine.objectContaining({
                 subj: jasmine.truthy()
             }));
